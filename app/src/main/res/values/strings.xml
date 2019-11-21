@@ -1,0 +1,9 @@
+<resources>
+    <string name="app_name">webkiosk</string>
+    <string name="app_settings">WebKiosk Settings</string>
+    <string name="title_home">Home</string>
+    <string name="title_dashboard">Dashboard</string>
+    <string name="title_keyboard">Keyboard</string>
+
+    <string name="title_notifications">Settings</string>
+</resources>
