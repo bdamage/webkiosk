@@ -41,6 +41,13 @@ public class JavaScriptInterface {
         ma.mScanner.SoftTrigger();
     }
 
+    @JavascriptInterface
+    public void enableDatawedge(boolean state){
+        Log.d(MainActivity.TAG,"Enable / Disable Datawedge: "+state);
+        MainActivity ma = (MainActivity)activity;
+        ma.mScanner.enableDatawedge(state);
+    }
+
 
     @JavascriptInterface
     public void hideSip(){

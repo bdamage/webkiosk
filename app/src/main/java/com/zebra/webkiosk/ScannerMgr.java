@@ -10,6 +10,7 @@ import android.os.Bundle;
 import android.util.Log;
 
 import java.util.ArrayList;
+import java.util.Set;
 
 public class ScannerMgr extends BroadcastReceiver {
 
@@ -94,7 +95,8 @@ public class ScannerMgr extends BroadcastReceiver {
 
         String action = intent.getAction();
         Log.d(TAG, "WEBKIOSK Action: " + action);
-        if (action.equals(ScannerMgr.APP_PACKAGE_NAME)) {
+
+        if (action.equals(ScannerMgr.APP_PACKAGE_NAME) ) {
             mDatawedgeEvent.onDatawedgeEvent(intent);
         } else if (action.equals(ScannerMgr.NOTIFICATION_ACTION)) {
             if (intent.hasExtra(NOTIFICATION)) {
@@ -319,6 +321,13 @@ public class ScannerMgr extends BroadcastReceiver {
 
     }
 
+
+    public void enableDatawedge(boolean state) {
+        Intent i = new Intent();
+        i.setAction("com.symbol.datawedge.api.ACTION");
+        i.putExtra("com.symbol.datawedge.api.ENABLE_DATAWEDGE", state);
+        mContext.sendBroadcast(i);
+    }
 
     // Container Activity must implement this interface
     public interface DatawedgeListener {

@@ -27,12 +27,11 @@ public class CustomWebView extends WebView {
         /* any initialisation work here */
     }
 
-    @Override
+/*    @Override
     public boolean onKeyDown(int keyCode, KeyEvent event) {
-
         return super.onKeyDown(keyCode, event);
     }
-
+*/
     @Override
     public InputConnection onCreateInputConnection(EditorInfo outAttrs) {
         Log.d("WEBKIOSK","HIDE KEYBOARD");

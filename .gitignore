@@ -11,4 +11,5 @@
 /dist_custom
 .externalNativeBuild
 config.txt
+config2.txt
 *.bat

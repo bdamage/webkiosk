@@ -16,8 +16,9 @@ import java.io.OutputStreamWriter;
 
 public class SettingsMgr {
     public SettingsData mSettingsData = new SettingsData();
-    public final static String TAG = "WEBKIOSK";
+    public final static String TAG = "WEBKIOSK_SETTINGS";
    // public final static String SCOPE = "webkiosk";
+    private String mSettingsFile = "config.txt";
     private Context mContext;
 
     public SettingsMgr(Context context) {
@@ -49,6 +50,12 @@ public class SettingsMgr {
 
     }
 
+
+    public void setSettingFile(String filename) {
+        mSettingsFile = filename;
+        Log.d(TAG,"Changed setting file to: "+mSettingsFile);
+    }
+
     public void writeSettingFile(){
 
         Gson gson = new Gson();
@@ -69,7 +76,7 @@ public class SettingsMgr {
 
         Log.d(TAG,Environment.getExternalStorageDirectory().getAbsoluteFile().toString());
         Log.d(TAG,path);
-        final File file = new File(path, "config.txt");
+        final File file = new File(path, mSettingsFile);
 
         // Save your stream, don't forget to flush() it before closing it.
 
@@ -124,7 +131,7 @@ public class SettingsMgr {
 
         Log.d(TAG,Environment.getExternalStorageDirectory().getAbsoluteFile().toString());
         Log.d(TAG,path);
-        final File file = new File(path, "config.txt");
+        final File file = new File(path, mSettingsFile);
 
         // Save your stream, don't forget to flush() it before closing it.
 

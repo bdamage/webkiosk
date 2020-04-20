@@ -171,7 +171,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
     @Override
     protected void onResume() {
         super.onResume();
-        Log.d(TAG,"onResume ******");
         mSettingsMgr.onLoadSettings();
         if(mSettingsMgr.mSettingsData.forcePortrait)
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -203,6 +202,21 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mSettingsMgr = new SettingsMgr(this);
+
+
+        Intent intent = this.getIntent();
+
+        if(intent.getAction().equals("com.zebra.webkiosk.LOAD_CONFIG")) {
+            String configfile = intent.getStringExtra("config");
+            Log.d(TAG, "Detected to load config file: "+configfile);
+            if(configfile!=null)
+                mSettingsMgr.setSettingFile(configfile);
+            else
+                Log.d(TAG,"Invalid setting filename provided via intent");
+        }
+
+
+
         mSettingsMgr.onLoadSettings();
 
         //Remove notification bar
@@ -274,6 +288,9 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
 
 
+
+
+
         mWebView = (CustomWebView) findViewById(R.id.activity_main_webview);
         mWebView.setWebViewClient(new MyWebViewClient());
 
@@ -283,6 +300,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         WebSettings webSettings = mWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         mWebView.setWebContentsDebuggingEnabled(mSettingsMgr.mSettingsData.chromeDebugging);
+
 
         mWebView.getSettings().setDomStorageEnabled(true);
         mWebView.getSettings().setDatabaseEnabled(true);
