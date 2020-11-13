@@ -14,8 +14,12 @@
         android:layout_height="wrap_content"
         android:text="Settings"
         android:textAlignment="center"
+        android:textColor="#000000"
         android:textSize="20sp"
-        app:autoSizeMaxTextSize="@android:dimen/notification_large_icon_height" />
+        android:textStyle="bold"
+        app:autoSizeMaxTextSize="@android:dimen/notification_large_icon_height"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toTopOf="parent" />
 
     <EditText
         android:id="@+id/editTextHomeUrl"
@@ -73,6 +77,36 @@
         app:layout_constraintTop_toBottomOf="@+id/injectJavascript" />
 
 
+    <Switch
+        android:id="@+id/autoStartOnBoot"
+        android:layout_width="0dp"
+        android:layout_height="30dp"
+        android:layout_marginTop="4dp"
+        android:clickable="false"
+        android:text="Auto Start on Boot"
+        android:textColor="#009688"
+        android:textStyle="italic"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/useScannerAPI" />
+
+
+    <Switch
+        android:id="@+id/allowMixedContent"
+        android:layout_width="0dp"
+        android:layout_height="30dp"
+        android:layout_marginTop="4dp"
+        android:clickable="false"
+        android:editable="false"
+        android:text="Allow mixed content (http and https)"
+        android:textColor="#009688"
+        android:textStyle="italic"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintHorizontal_bias="0.0"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/autoStartOnBoot" />
+
 
     <Switch
         android:id="@+id/hideNavBar"
@@ -83,7 +117,7 @@
         app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintHorizontal_bias="0.0"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@+id/useScannerAPI" />
+        app:layout_constraintTop_toBottomOf="@+id/allowMixedContent" />
 
     <Switch
         android:id="@+id/controlEKBVisibility"
@@ -130,8 +164,8 @@
         android:ems="10"
         android:inputType="textPersonName"
         android:text="EKB Group"
-        app:layout_constraintTop_toBottomOf="@+id/useEKB"
-        tools:layout_editor_absoluteX="0dp" />
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@+id/useEKB" />
 
     <TextView
         android:id="@+id/textViewPassword"
@@ -142,7 +176,7 @@
         android:text="Settings password"
         android:textAlignment="viewStart"
         android:textColor="@android:color/black"
-        android:textSize="14sp"
+        android:textSize="18sp"
         app:autoSizeMaxTextSize="@android:dimen/notification_large_icon_height"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintTop_toBottomOf="@+id/editTextEKBGroup" />

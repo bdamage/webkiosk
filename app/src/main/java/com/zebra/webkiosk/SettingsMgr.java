@@ -62,8 +62,7 @@ public class SettingsMgr {
         String json = gson.toJson(mSettingsData);
         Log.d(TAG,json);
 
-
-        String path = Environment.getExternalStorageDirectory() + File.separator  + "webkiosk//";
+        String path = Environment.getExternalStorageDirectory() + File.separator  + "webkiosk/";
         File fPath;
 
         fPath = new File(path);
@@ -86,9 +85,7 @@ public class SettingsMgr {
             FileOutputStream fOut = new FileOutputStream(file);
             OutputStreamWriter myOutWriter = new OutputStreamWriter(fOut);
             myOutWriter.append(json);
-
             myOutWriter.close();
-
             fOut.flush();
             fOut.close();
         }
@@ -154,10 +151,6 @@ public class SettingsMgr {
                 Gson gson = new Gson();
 
                 mSettingsData = gson.fromJson(""+fileContent, mSettingsData.getClass());
-
-
-              //  Log.d(TAG,"HOME URL: "+mSettingsData.homeURL);
-              //  Log.d(TAG,"DEBUGGING : "+mSettingsData.chromeDebugging);
 
             } catch (IOException e) {
                 Log.e("Exception", "File write failed: " + e.toString());

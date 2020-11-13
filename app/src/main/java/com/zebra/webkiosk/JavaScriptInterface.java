@@ -42,6 +42,13 @@ public class JavaScriptInterface {
     }
 
     @JavascriptInterface
+    public void stopSoftTriggerScan(){
+        Log.d(MainActivity.TAG,"Stop soft trigger!");
+        MainActivity ma = (MainActivity)activity;
+        ma.mScanner.StopSoftTrigger();
+    }
+
+    @JavascriptInterface
     public void enableDatawedge(boolean state){
         Log.d(MainActivity.TAG,"Enable / Disable Datawedge: "+state);
         MainActivity ma = (MainActivity)activity;

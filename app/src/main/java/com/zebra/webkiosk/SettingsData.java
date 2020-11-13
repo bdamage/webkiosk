@@ -15,5 +15,7 @@ public class SettingsData {
     public String ekbDefaultGroup = "NumericOnly";
     public String ekbDefaultName = "NumericOnly";
     public boolean ekbFullControl = false;
+    public boolean autoStartOnBoot = false;
+    public boolean allowMixedContent = false;  //https and/or http
 
 }

@@ -301,24 +301,26 @@ public class ScannerMgr extends BroadcastReceiver {
         mContext.sendBroadcast(i);
     }
 
+    void StopSoftTrigger(){
+        // define action and data strings
+        String softScanTrigger = "com.symbol.datawedge.api.ACTION";
+        String extraData = "com.symbol.datawedge.api.SOFT_SCAN_TRIGGER";
+        Intent i = new Intent();
+        i.setAction(softScanTrigger);
+        i.putExtra(extraData, "STOP_SCANNING");
+        mContext.sendBroadcast(i);
+    }
+
+
 
     void SoftTrigger(){
         // define action and data strings
         String softScanTrigger = "com.symbol.datawedge.api.ACTION";
         String extraData = "com.symbol.datawedge.api.SOFT_SCAN_TRIGGER";
-
-        // create the intent
         Intent i = new Intent();
-
-        // set the action to perform
         i.setAction(softScanTrigger);
-
-        // add additional info
         i.putExtra(extraData, "START_SCANNING");
-
-        // send the intent to DataWedge
         mContext.sendBroadcast(i);
-
     }
 
 

@@ -40,6 +40,12 @@ public class SettingsActivity extends Activity{
         switchState = findViewById(R.id.useScannerAPI);
         switchState.setChecked(mSettingsMgr.mSettingsData.useScannerAPI);
 
+        switchState = findViewById(R.id.allowMixedContent);
+        switchState.setChecked(mSettingsMgr.mSettingsData.allowMixedContent);
+
+        switchState = findViewById(R.id.autoStartOnBoot);
+        switchState.setChecked(mSettingsMgr.mSettingsData.autoStartOnBoot);
+
 
         switchState = findViewById(R.id.controlEKBVisibility);
         switchState.setChecked(mSettingsMgr.mSettingsData.ekbFullControl);
@@ -84,6 +90,10 @@ public class SettingsActivity extends Activity{
         mSettingsMgr.mSettingsData.hideNavbar = getSwitchState(R.id.hideNavBar);
         mSettingsMgr.mSettingsData.ekbFullControl = getSwitchState(R.id.controlEKBVisibility);
         mSettingsMgr.mSettingsData.useEKB = getSwitchState(R.id.useEKB);
+        mSettingsMgr.mSettingsData.allowMixedContent = getSwitchState(R.id.allowMixedContent);
+        mSettingsMgr.mSettingsData.autoStartOnBoot = getSwitchState(R.id.autoStartOnBoot);
+
+
         mSettingsMgr.mSettingsData.ekbDefaultGroup = getEditText(R.id.editTextEKBGroup);
         mSettingsMgr.mSettingsData.ekbDefaultName = getEditText(R.id.editTextEKBName);
 

@@ -10,12 +10,16 @@ import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
+import android.net.Uri;
+import android.net.http.SslError;
 import android.net.wifi.WifiInfo;
 import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
+import android.os.Parcelable;
+import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.design.widget.BottomNavigationView;
 import android.support.v4.app.ActivityCompat;
@@ -30,8 +34,12 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
+import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
 import android.webkit.RenderProcessGoneDetail;
+import android.webkit.SslErrorHandler;
+import android.webkit.ValueCallback;
+import android.webkit.WebChromeClient;
 import android.webkit.WebResourceError;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebSettings;
@@ -48,9 +56,10 @@ import org.json.JSONObject;
 
 import java.io.File;
 import java.io.FileInputStream;
-import java.io.FileOutputStream;
 import java.io.IOException;
 import java.io.InputStream;
+import java.text.SimpleDateFormat;
+import java.util.Date;
 import java.util.Set;
 
 
@@ -70,17 +79,25 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
     private boolean ekbShowState = true;
 
+    private static final int FILECHOOSER_RESULTCODE = 2888;
+    private ValueCallback<Uri> mUploadMessage;
+    private Uri mCapturedImageURI = null;
+    private static final int INPUT_FILE_REQUEST_CODE = 1;
+
+    private ValueCallback<Uri[]> mFilePathCallback;
+    private String mCameraPhotoPath;
+
 
     @Override
     public void onNetworkChange(Boolean connected) {
-        Log.d(TAG,"MainActivity got network change!");
+        Log.d(TAG,"onNetworkChange connected: "+connected);
         mWebView.evaluateJavascript("javascript:if(typeof onNetworkChange === \"function\") onNetworkChange('"+ mSettingsMgr.mSettingsData.homeURL+"', "+connected+");",null);
     }
 
     @Override
     public void onNetworkEvent(String json) {
-        Log.d(TAG,"MainActivity got network  event!");
-        Log.d(TAG,"NetEvent: "+json);
+        json = json.replace("\"\"","\"");
+        Log.d(TAG,"onNetworkEvent: "+json);
         mWebView.evaluateJavascript("javascript:if(typeof onNetworkEvent === \"function\") onNetworkEvent("+json+");",null);
     }
 
@@ -202,25 +219,36 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
     protected void onCreate(Bundle savedInstanceState) {
         super.onCreate(savedInstanceState);
         mSettingsMgr = new SettingsMgr(this);
-
-
         Intent intent = this.getIntent();
+        boolean rebooted = false;
 
-        if(intent.getAction().equals("com.zebra.webkiosk.LOAD_CONFIG")) {
-            String configfile = intent.getStringExtra("config");
-            Log.d(TAG, "Detected to load config file: "+configfile);
-            if(configfile!=null)
-                mSettingsMgr.setSettingFile(configfile);
-            else
-                Log.d(TAG,"Invalid setting filename provided via intent");
+        if(intent!=null) {
+            if( intent.getAction().equals("com.zebra.webkiosk.LOAD_CONFIG")) {
+                String configfile = intent.getStringExtra("config");
+                Log.d(TAG, "Detected to load config file: "+configfile);
+                if(configfile!=null)
+                    mSettingsMgr.setSettingFile(configfile);
+                else
+                    Log.d(TAG,"Invalid setting filename provided via intent");
+            } else if( intent.getAction().equals("android.intent.action.MAIN")) {
+
+                 rebooted = intent.getBooleanExtra("BOOT_COMPLETED", false);
+
+            }
         }
-
-
 
         mSettingsMgr.onLoadSettings();
 
-        //Remove notification bar
+        if(rebooted == true && mSettingsMgr.mSettingsData.autoStartOnBoot == false) {
+            Log.d(TAG, "No auto start needed -  shutting down app");
+         //  shutdownApp();
+        }
 
+        /*********************************************************
+                Set up layout
+         *********************************************************/
+
+        //Remove notification bar
         if(mSettingsMgr.mSettingsData.forcePortrait)
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
 
@@ -235,84 +263,16 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
         getWindow().setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_ADJUST_PAN);
 
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.READ_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
+        /**************************************************
+                Set up permissions and platform check
+         **************************************************/
+        checkPlatform();
 
-            // Permission is not granted
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.READ_EXTERNAL_STORAGE)) {
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-            } else {
-                // No explanation needed; request the permission
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.READ_EXTERNAL_STORAGE},
-                        1001);
+        checkForPermission(Manifest.permission.READ_EXTERNAL_STORAGE);
+        checkForPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE);
+        checkForPermission(Manifest.permission.CAMERA);
+        checkForPermission(Manifest.permission.ACCESS_FINE_LOCATION);
 
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
-            }
-        } else {
-            // Permission has already been granted
-        }
-
-
-        if (ContextCompat.checkSelfPermission(this,
-                Manifest.permission.WRITE_EXTERNAL_STORAGE)
-                != PackageManager.PERMISSION_GRANTED) {
-
-            // Permission is not granted
-            // Should we show an explanation?
-            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
-                    Manifest.permission.WRITE_EXTERNAL_STORAGE)) {
-                // Show an explanation to the user *asynchronously* -- don't block
-                // this thread waiting for the user's response! After the user
-                // sees the explanation, try again to request the permission.
-            } else {
-                // No explanation needed; request the permission
-                ActivityCompat.requestPermissions(this,
-                        new String[]{Manifest.permission.WRITE_EXTERNAL_STORAGE},
-                        1001);
-
-                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
-                // app-defined int constant. The callback method gets the
-                // result of the request.
-            }
-        } else {
-            // Permission has already been granted
-        }
-
-
-
-
-
-
-        mWebView = (CustomWebView) findViewById(R.id.activity_main_webview);
-        mWebView.setWebViewClient(new MyWebViewClient());
-
-        mWebView.clearCache(true);
-
-        // Enable Javascript
-        WebSettings webSettings = mWebView.getSettings();
-        webSettings.setJavaScriptEnabled(true);
-        mWebView.setWebContentsDebuggingEnabled(mSettingsMgr.mSettingsData.chromeDebugging);
-
-
-        mWebView.getSettings().setDomStorageEnabled(true);
-        mWebView.getSettings().setDatabaseEnabled(true);
-
-        CookieManager cookieManager = CookieManager.getInstance();
-        cookieManager.setAcceptCookie(true);
-        cookieManager.setAcceptThirdPartyCookies(mWebView,true);
-        cookieManager.setAcceptFileSchemeCookies(true);
-
-        mWebView.loadUrl(mSettingsMgr.mSettingsData.homeURL);
-        jsInterface = new JavaScriptInterface(this);
-        mWebView.addJavascriptInterface(jsInterface, "JSInterface");
 
         if(mSettingsMgr.mSettingsData.useScannerAPI) {
             mScanner = new ScannerMgr(this);
@@ -328,8 +288,99 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         mNetReceiver = new NetworkConnectivityReceiver(this);
         mBatteryReceiver = new BatteryReceiver(this);
 
-        checkPlatform();
+        initWebView();
     }
+
+    public void initWebView(){
+
+        Log.d(TAG,"initialize WebView component.");
+        mWebView = (CustomWebView) findViewById(R.id.activity_main_webview);
+        mWebView.setWebViewClient(new MyWebViewClient());
+
+
+
+        // Enable Javascript
+        WebSettings webSettings = mWebView.getSettings();
+        webSettings.setJavaScriptEnabled(true);
+        mWebView.setWebContentsDebuggingEnabled(mSettingsMgr.mSettingsData.chromeDebugging);
+
+
+        mWebView.getSettings().setDomStorageEnabled(true);
+        mWebView.getSettings().setDatabaseEnabled(true);
+        mWebView.getSettings().setAllowContentAccess(true);
+        mWebView.getSettings().setAllowFileAccess(true);
+
+
+        mWebView.clearHistory();
+        mWebView.clearCache(true);
+
+        mWebView.clearSslPreferences();
+       // mWebView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
+
+
+       // if(mSettingsMgr.mSettingsData.allowMixedContent)
+         //   mWebView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
+
+
+        CookieManager cookieManager = CookieManager.getInstance();
+        cookieManager.setAcceptCookie(true);
+        cookieManager.setAcceptThirdPartyCookies(mWebView,true);
+        cookieManager.setAcceptFileSchemeCookies(true);
+
+        jsInterface = new JavaScriptInterface(this);
+        mWebView.addJavascriptInterface(jsInterface, "JSInterface");
+
+        mWebView.setWebChromeClient(new MyChromeClient());
+        mWebView.loadUrl(mSettingsMgr.mSettingsData.homeURL);
+
+    }
+
+    public void checkForPermission(String permissionType) {
+
+        if (ContextCompat.checkSelfPermission(this,
+                permissionType)
+                != PackageManager.PERMISSION_GRANTED) {
+
+            // Permission is not granted
+            // Should we show an explanation?
+            if (ActivityCompat.shouldShowRequestPermissionRationale(this,
+                    permissionType)) {
+                // Show an explanation to the user *asynchronously* -- don't block
+                // this thread waiting for the user's response! After the user
+                // sees the explanation, try again to request the permission.
+                showCustomDialog("Permission", "Permission type is not granted:\n"+permissionType+"\nApp may not support all features.");
+            } else {
+                // No explanation needed; request the permission
+                ActivityCompat.requestPermissions(this,
+                        new String[]{permissionType},
+                        1001);
+
+                // MY_PERMISSIONS_REQUEST_READ_CONTACTS is an
+                // app-defined int constant. The callback method gets the
+                // result of the request.
+            }
+        } else {
+            // Permission has already been granted
+            if(mSettingsMgr.mSettingsData.chromeDebugging)
+                Toast.makeText(getApplicationContext(), "Permission already granted \n"+permissionType, Toast.LENGTH_SHORT).show();
+        }
+
+
+    }
+
+    public void showCustomDialog(String title, String message) {
+        AlertDialog alertDialog = new AlertDialog.Builder(MainActivity.this).create();
+        alertDialog.setTitle(title);
+        alertDialog.setMessage(message);
+        alertDialog.setButton(AlertDialog.BUTTON_NEUTRAL, "OK",
+                new DialogInterface.OnClickListener() {
+                    public void onClick(DialogInterface dialog, int which) {
+                        dialog.dismiss();
+                    }
+                });
+        alertDialog.show();
+    }
+
 
     public void checkWiFi() {
         onNetworkEvent(mNetReceiver.fetchWiFiState());
@@ -345,6 +396,21 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 || "google_sdk".equals(Build.PRODUCT);
     }
 
+    public void shutdownApp(){
+        final Handler handler = new Handler();
+        handler.postDelayed(new Runnable() {
+            @Override
+            public void run() {
+                Log.d(TAG, "Shutting down app! ***");
+
+                moveTaskToBack(false);
+                android.os.Process.killProcess(android.os.Process.myPid());
+                System.exit(1);
+
+            }
+        }, 3000);
+    }
+
     public void checkPlatform() {
 
         if(isEmulator())
@@ -356,19 +422,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 if (Build.BRAND.compareTo("Zebra") != 0) {
                     Log.d(TAG, "Not a valid platform!");
                     Toast.makeText(getApplicationContext(), "Invalid platform! Will close the app.", Toast.LENGTH_LONG).show();
-                    final Handler handler = new Handler();
-                    handler.postDelayed(new Runnable() {
-                        @Override
-                        public void run() {
-                            Log.d(TAG, "Shutting down app! ***");
-
-                            moveTaskToBack(true);
-                            android.os.Process.killProcess(android.os.Process.myPid());
-                            System.exit(1);
-
-                        }
-                    }, 3000);
-
+                    shutdownApp();
                 }
             }
                 });
@@ -396,6 +450,194 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         }
     }
 
+    @Override
+    public void onActivityResult(int requestCode, int resultCode, Intent data) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
+            if (requestCode != INPUT_FILE_REQUEST_CODE || mFilePathCallback == null) {
+                super.onActivityResult(requestCode, resultCode, data);
+                return;
+            }
+            Uri[] results = null;
+            // Check that the response is a good one
+            if (resultCode == Activity.RESULT_OK) {
+                if (data == null) {
+                    // If there is not data, then we may have taken a photo
+                    if (mCameraPhotoPath != null) {
+                        results = new Uri[]{Uri.parse(mCameraPhotoPath)};
+                    }
+                } else {
+                    String dataString = data.getDataString();
+                    if (dataString != null) {
+                        results = new Uri[]{Uri.parse(dataString)};
+                    }
+                }
+            }
+            mFilePathCallback.onReceiveValue(results);
+            mFilePathCallback = null;
+        } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT) {
+            if (requestCode != FILECHOOSER_RESULTCODE || mUploadMessage == null) {
+                super.onActivityResult(requestCode, resultCode, data);
+                return;
+            }
+            if (requestCode == FILECHOOSER_RESULTCODE) {
+                if (null == this.mUploadMessage) {
+                    return;
+                }
+                Uri result = null;
+                try {
+                    if (resultCode != RESULT_OK) {
+                        result = null;
+                    } else {
+                        // retrieve from the private variable if the intent is null
+                        result = data == null ? mCapturedImageURI : data.getData();
+                    }
+                } catch (Exception e) {
+                    Toast.makeText(getApplicationContext(), "activity :" + e,
+                            Toast.LENGTH_LONG).show();
+                }
+                mUploadMessage.onReceiveValue(result);
+                mUploadMessage = null;
+            }
+        }
+        return;
+    }
+
+    private File createImageFile() throws IOException {
+        // Create an image file name
+        String timeStamp = new SimpleDateFormat("yyyyMMdd_HHmmss").format(new Date());
+        String imageFileName = "JPEG_" + timeStamp + "_";
+        File storageDir = Environment.getExternalStoragePublicDirectory(
+                Environment.DIRECTORY_PICTURES);
+        File imageFile = File.createTempFile(
+                imageFileName,  /* prefix */
+                ".jpg",         /* suffix */
+                storageDir      /* directory */
+        );
+        return imageFile;
+    }
+
+    private class MyChromeClient extends WebChromeClient {
+
+        // For Android 5.0
+        public boolean onShowFileChooser(WebView view, ValueCallback<Uri[]> filePath, WebChromeClient.FileChooserParams fileChooserParams) {
+            Log.d(TAG,"Open File chooser 5.0+");
+
+            // Double check that we don't have any existing callbacks
+            if (mFilePathCallback != null) {
+                mFilePathCallback.onReceiveValue(null);
+            }
+            mFilePathCallback = filePath;
+
+            Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
+            if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
+                // Create the File where the photo should go
+                File photoFile = null;
+                try {
+                    photoFile = createImageFile();
+                    takePictureIntent.putExtra("PhotoPath", mCameraPhotoPath);
+                } catch (IOException ex) {
+                    // Error occurred while creating the File
+                    Log.e(TAG, "Unable to create Image File", ex);
+                }
+                // Continue only if the File was successfully created
+                if (photoFile != null) {
+                    mCameraPhotoPath = "file:" + photoFile.getAbsolutePath();
+                    takePictureIntent.putExtra(MediaStore.EXTRA_OUTPUT,
+                            Uri.fromFile(photoFile));
+                } else {
+                    takePictureIntent = null;
+                }
+            }
+            Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
+            contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
+            contentSelectionIntent.setType("image/*");
+            Intent[] intentArray;
+            if (takePictureIntent != null) {
+                intentArray = new Intent[]{takePictureIntent};
+            } else {
+                intentArray = new Intent[0];
+            }
+            Intent chooserIntent = new Intent(Intent.ACTION_CHOOSER);
+            chooserIntent.putExtra(Intent.EXTRA_ALLOW_MULTIPLE,true);
+            chooserIntent.putExtra(Intent.EXTRA_INTENT, contentSelectionIntent);
+            chooserIntent.putExtra(Intent.EXTRA_TITLE, "Image Chooser");
+            chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intentArray);
+            startActivityForResult(chooserIntent, INPUT_FILE_REQUEST_CODE);
+
+
+            return true;
+        }
+
+        // openFileChooser for Android 3.0+
+        public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType){
+
+            Log.d(TAG,"Open File chooser");
+            // Update message
+            mUploadMessage = uploadMsg;
+
+            try{
+
+                // Create AndroidExampleFolder at sdcard
+
+                File imageStorageDir = new File(
+                        Environment.getExternalStoragePublicDirectory(
+                                Environment.DIRECTORY_PICTURES)
+                        , "AndroidExampleFolder");
+
+                if (!imageStorageDir.exists()) {
+                    // Create AndroidExampleFolder at sdcard
+                    imageStorageDir.mkdirs();
+                }
+
+                // Create camera captured image file path and name
+                File file = new File(
+                        imageStorageDir + File.separator + "IMG_"
+                                + String.valueOf(System.currentTimeMillis())
+                                + ".jpg");
+
+                mCapturedImageURI = Uri.fromFile(file);
+
+                // Camera capture image intent
+                final Intent captureIntent = new Intent(
+                        android.provider.MediaStore.ACTION_IMAGE_CAPTURE);
+
+                captureIntent.putExtra(MediaStore.EXTRA_OUTPUT, mCapturedImageURI);
+
+                Intent i = new Intent(Intent.ACTION_GET_CONTENT);
+                i.addCategory(Intent.CATEGORY_OPENABLE);
+                i.setType("image/*");
+
+                // Create file chooser intent
+                Intent chooserIntent = Intent.createChooser(i, "Image Chooser");
+
+                // Set camera intent to file chooser
+                chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS
+                        , new Parcelable[] { captureIntent });
+
+                // On select image call onActivityResult method of activity
+                startActivityForResult(chooserIntent, FILECHOOSER_RESULTCODE);
+
+            }
+            catch(Exception e){
+                Toast.makeText(getBaseContext(), "Exception:"+e,
+                        Toast.LENGTH_LONG).show();
+            }
+
+        }
+
+
+        // The webPage has 2 filechoosers and will send a
+        // console message informing what action to perform,
+        // taking a photo or updating the file
+
+        public boolean onConsoleMessage(ConsoleMessage cm) {
+
+            onConsoleMessage(cm.message(), cm.lineNumber(), cm.sourceId());
+            return true;
+        }
+
+    }
+
     private class MyWebViewClient extends WebViewClient {
 
         private Handler handler = new Handler();
@@ -410,8 +652,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         public void onReceivedError(WebView view, int errorCode, String description, String failingUrl) {
             if(errorCode == 404){
                 Log.d(TAG, "Invalid URL: "+failingUrl);
-            }
-            else if(errorCode == 500){
+            } else if(errorCode == 500){
                 Log.d(TAG, "Internal Server error: "+failingUrl);
             } else {
                 Log.d(TAG, "Page load error (code: "+String.valueOf(errorCode)+") URL: "+failingUrl);
@@ -431,7 +672,8 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                         mWebView.setActivated(true);
 
                         if (mWebView != null && mWebView.isActivated()) {
-                            String url = "file:///" + Environment.getExternalStorageDirectory().getPath() + "/offline.html";
+                           // String url = "file:///" + Environment.getExternalStorageDirectory().getPath() + "/offline.html";
+                            String url = "file:///android_asset/badurl.html";
                             mWebView.loadUrl(url);
 
                             Handler hdler = new Handler();
@@ -447,6 +689,12 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 }, 500);
             }
         }
+           @Override
+         public void onReceivedSslError(WebView view, SslErrorHandler handler, SslError error) {
+           //   handler.proceed();
+              Log.d(TAG,"ssl_error: " + error.toString());
+          }
+
 
         @TargetApi(android.os.Build.VERSION_CODES.M)
         @Override
@@ -486,8 +734,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 // By this point, the instance variable "mWebView" is guaranteed
                 // to be null, so it's safe to reinitialize it.
 
-                mWebView = (CustomWebView) findViewById(R.id.activity_main_webview);
-                mWebView.setWebViewClient(new MyWebViewClient());
 
                 mWebView.clearCache(true);
 
