@@ -21,8 +21,19 @@ public class SettingsMgr {
     private String mSettingsFile = "config.txt";
     private Context mContext;
 
+    private String mPath;
+
     public SettingsMgr(Context context) {
         mContext = context;
+        //Log.d(TAG,Environment.getExternalStorageDirectory().getAbsoluteFile().toString());
+
+
+        //Legacy path
+        mPath = Environment.getExternalStorageDirectory() + File.separator  + "webkiosk/";
+
+        //Android 10+ friendly
+        mPath = mContext.getExternalFilesDir(null).getPath();
+
     }
 
     public void onSaveSettings() {
@@ -32,7 +43,7 @@ public class SettingsMgr {
 
         SharedPreferences.Editor editor = sharedPref.edit();
         //   editor.putInt("interval", getEditTextInt(com.zebra.webkiosk.R.id.editTextInterval));
-     editor.putString("homeURL", mSettingsData.homeURL);
+        editor.putString("homeURL", mSettingsData.homeURL);
         editor.putBoolean("chromeDebugging",  mSettingsData.chromeDebugging);
         editor.putBoolean("forcePortrait", mSettingsData.forcePortrait);
         editor.putBoolean("injectJavascript", mSettingsData.injectJavascript);
@@ -42,7 +53,6 @@ public class SettingsMgr {
         editor.putBoolean("useEKB", mSettingsData.useEKB);
         editor.putBoolean("hideNavbar", mSettingsData.hideNavbar);
         editor.putBoolean("useScannerAPI", mSettingsData.useScannerAPI);
-
         //  Log.v(TAG, "New interval: "+getEditTextInt(com.zebra.webkiosk.R.id.editTextInterval));
         editor.commit();
     */
@@ -61,21 +71,15 @@ public class SettingsMgr {
         Gson gson = new Gson();
         String json = gson.toJson(mSettingsData);
         Log.d(TAG,json);
-
-        String path = Environment.getExternalStorageDirectory() + File.separator  + "webkiosk/";
         File fPath;
-
-        fPath = new File(path);
+        fPath = new File(mPath);
         if(fPath.isDirectory() == false) {
             Log.d(TAG,"Path does not exist: " + fPath.getPath());
            boolean success =  fPath.mkdirs();
-            Log.d(TAG,"Path created = "+ success);
+           Log.d(TAG,"Path created = "+ success);
         }
-
-
-        Log.d(TAG,Environment.getExternalStorageDirectory().getAbsoluteFile().toString());
-        Log.d(TAG,path);
-        final File file = new File(path, mSettingsFile);
+        Log.d(TAG,"Write path: "+mPath);
+        final File file = new File(mPath, mSettingsFile);
 
         // Save your stream, don't forget to flush() it before closing it.
 
@@ -89,9 +93,8 @@ public class SettingsMgr {
             fOut.flush();
             fOut.close();
         }
-        catch (IOException e)
-        {
-            Log.e("Exception", "File write failed: " + e.toString());
+        catch (IOException e)  {
+            Log.e(TAG, "File write failed: " + e.toString());
         }
     }
 
@@ -115,35 +118,28 @@ public class SettingsMgr {
     }
 
     public void readSettingFile(){
-        String path = Environment.getExternalStorageDirectory() + File.separator  + "webkiosk//";
-        File fPath;
 
-        fPath = new File(path);
+        File fPath;
+        fPath = new File(mPath);
         if(fPath.isDirectory() == false) {
             Log.d(TAG,"Path does not exist: " + fPath.getPath());
             boolean success =  fPath.mkdirs();
             Log.d(TAG,"Path created = "+ success);
         }
 
-
-        Log.d(TAG,Environment.getExternalStorageDirectory().getAbsoluteFile().toString());
-        Log.d(TAG,path);
-        final File file = new File(path, mSettingsFile);
+        final File file = new File(mPath, mSettingsFile);
 
         // Save your stream, don't forget to flush() it before closing it.
-
         if (file.exists() ) {
             try {
 
                 FileInputStream fis;
                 fis = new FileInputStream(file);
-                StringBuffer fileContent = new StringBuffer("");
+                StringBuffer fileContent = new StringBuffer();
 
                 byte[] buffer = new byte[fis.available()];
                 int n;
-                while ((n = fis.read(buffer)) != -1)
-                {
-
+                while ((n = fis.read(buffer)) != -1) {
                     fileContent.append(new String(buffer, 0, n));
                 }
 
@@ -153,10 +149,13 @@ public class SettingsMgr {
                 mSettingsData = gson.fromJson(""+fileContent, mSettingsData.getClass());
 
             } catch (IOException e) {
-                Log.e("Exception", "File write failed: " + e.toString());
+                Log.e(TAG, "File read failed: " + e.toString());
             }
         }
     }
 
+    public String getPath() {
+        return mPath;
+    }
 
 }

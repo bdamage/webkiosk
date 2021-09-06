@@ -268,12 +268,26 @@ public class ScannerMgr extends BroadcastReceiver {
         mContext.sendBroadcast(i);
 
 
+        bMain.putString("PROFILE_NAME", PROFILENAME);
+        bMain.putString("CONFIG_MODE", "UPDATE");
+        bConfig.putString("PLUGIN_NAME", "BARCODE");
+        bParams.putString("scanner_selection","auto");   //!important if decoders are being set etc
+        bParams.putString("scanner_input_enabled","true");
+        bParams.putString("scanning_mode","1");
+
+        bConfig.putBundle("PARAM_LIST", bParams);
+        bMain.putBundle("PLUGIN_CONFIG", bConfig);
+        i.setAction("com.symbol.datawedge.api.ACTION");
+        i.putExtra("com.symbol.datawedge.api.SET_CONFIG", bMain);
+        mContext.sendBroadcast(i);
+
         // Disable keystroke
         bMain.putString("PROFILE_NAME", PROFILENAME);
         bMain.putString("CONFIG_MODE", "UPDATE");
         bConfig.putString("PLUGIN_NAME", "KEYSTROKE");
         bParams.putString("keystroke_output_enabled","false");
         bConfig.putBundle("PARAM_LIST", bParams);
+
 
 
         Bundle bundleApp = new Bundle();

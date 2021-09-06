@@ -1,19 +1,26 @@
+/*
+
+
+
+    Change  history
+
+    1.4.2   - Changed config file storage & inject.js to Storage/Android/data/com.zebra.webkiosk/files
+
+*/
+
+
 package com.zebra.webkiosk;
 
 import android.Manifest;
 import android.annotation.TargetApi;
 import android.app.Activity;
 import android.app.AlertDialog;
-import android.content.BroadcastReceiver;
-import android.content.Context;
 import android.content.DialogInterface;
 import android.content.Intent;
 import android.content.pm.ActivityInfo;
 import android.content.pm.PackageManager;
 import android.net.Uri;
 import android.net.http.SslError;
-import android.net.wifi.WifiInfo;
-import android.net.wifi.WifiManager;
 import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
@@ -46,10 +53,7 @@ import android.webkit.WebSettings;
 import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.EditText;
-import android.widget.TextView;
 import android.widget.Toast;
-
-import com.google.gson.Gson;
 
 import org.json.JSONException;
 import org.json.JSONObject;
@@ -61,6 +65,8 @@ import java.io.InputStream;
 import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Set;
+
+import static android.app.Activity.RESULT_OK;
 
 
 public class MainActivity extends AppCompatActivity implements ScannerMgr.DatawedgeListener, NetworkConnectivityReceiver.NetworkChangeListener, NetworkConnectivityReceiver.NetworkEventListener, BatteryReceiver.BatteryListener {
@@ -194,6 +200,8 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         else
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_USER);
 
+        CUSTOM_MULTIBARCODE = mSettingsMgr.mSettingsData.customMultiBarcode;
+
         mWebView.setWebContentsDebuggingEnabled(mSettingsMgr.mSettingsData.chromeDebugging);
         if(mSettingsMgr.mSettingsData.useEKB)
             jsInterface.setEKBLayout(mSettingsMgr.mSettingsData.ekbDefaultGroup, mSettingsMgr.mSettingsData.ekbDefaultName);
@@ -247,7 +255,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         /*********************************************************
                 Set up layout
          *********************************************************/
-
         //Remove notification bar
         if(mSettingsMgr.mSettingsData.forcePortrait)
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -273,15 +280,17 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         checkForPermission(Manifest.permission.CAMERA);
         checkForPermission(Manifest.permission.ACCESS_FINE_LOCATION);
 
-
         if(mSettingsMgr.mSettingsData.useScannerAPI) {
             mScanner = new ScannerMgr(this);
             mScanner.registerReceiver();
 
-            if(CUSTOM_MULTIBARCODE)
+            CUSTOM_MULTIBARCODE = mSettingsMgr.mSettingsData.customMultiBarcode;
+
+            if(CUSTOM_MULTIBARCODE) {
                 mScanner.createScannerProfile();
-            else
+            } else {
                 mScanner.createScannerProfileClean();
+            }
 
         }
 
@@ -297,19 +306,18 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         mWebView = (CustomWebView) findViewById(R.id.activity_main_webview);
         mWebView.setWebViewClient(new MyWebViewClient());
 
-
-
         // Enable Javascript
         WebSettings webSettings = mWebView.getSettings();
         webSettings.setJavaScriptEnabled(true);
         mWebView.setWebContentsDebuggingEnabled(mSettingsMgr.mSettingsData.chromeDebugging);
 
-
         mWebView.getSettings().setDomStorageEnabled(true);
         mWebView.getSettings().setDatabaseEnabled(true);
         mWebView.getSettings().setAllowContentAccess(true);
         mWebView.getSettings().setAllowFileAccess(true);
-
+        //mWebView.getSettings().setSavePassword(false);
+        mWebView.clearFormData();
+        mWebView.getSettings().setSaveFormData(false);
 
         mWebView.clearHistory();
         mWebView.clearCache(true);
@@ -331,6 +339,24 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         mWebView.addJavascriptInterface(jsInterface, "JSInterface");
 
         mWebView.setWebChromeClient(new MyChromeClient());
+
+      /*  UserName: abc
+        Password: def
+        OnScreenKeyboard: false
+        */
+/*
+        String html = "<!DOCTYPE html>" +
+    "<html>" +
+    "<body onload='document.frm1.submit()'>" +
+    "<form action='"+mSettingsMgr.mSettingsData.homeURL+"' method='post' name='frm1'>" +
+    "  <input type='hidden' name='UserName' value='004002'><br>" +
+    "  <input type='hidden' name='Password' value='0040Sta19547'><br>" +
+    "</form>" +
+    "</body>" +
+    "</html>";
+mWebView.loadData(html, "text/html", "UTF-8");
+
+*/
         mWebView.loadUrl(mSettingsMgr.mSettingsData.homeURL);
 
     }
@@ -437,7 +463,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
             navigation.setVisibility(View.GONE);
         else
             navigation.setVisibility(View.VISIBLE);
-
     }
 
 
@@ -452,6 +477,13 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
+
+     /*   Log.d(TAG,"requestCode: "+requestCode);
+
+        Log.d(TAG,"resultCode: "+resultCode);
+        for(String s : data.getExtras().keySet())
+            Log.d(TAG,"Key: "+s+" value:"+data.getExtras().getString(s));
+*/
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             if (requestCode != INPUT_FILE_REQUEST_CODE || mFilePathCallback == null) {
                 super.onActivityResult(requestCode, resultCode, data);
@@ -459,19 +491,23 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
             }
             Uri[] results = null;
             // Check that the response is a good one
-            if (resultCode == Activity.RESULT_OK) {
+            if (resultCode == RESULT_OK) {
                 if (data == null) {
                     // If there is not data, then we may have taken a photo
+                    Log.d(TAG,"mCameraPhotoPath: "+mCameraPhotoPath);
+
                     if (mCameraPhotoPath != null) {
                         results = new Uri[]{Uri.parse(mCameraPhotoPath)};
                     }
                 } else {
                     String dataString = data.getDataString();
+                    Log.d(TAG,"dataString: "+dataString);
                     if (dataString != null) {
                         results = new Uri[]{Uri.parse(dataString)};
                     }
                 }
             }
+
             mFilePathCallback.onReceiveValue(results);
             mFilePathCallback = null;
         } else if (Build.VERSION.SDK_INT <= Build.VERSION_CODES.KITKAT) {
@@ -528,17 +564,19 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
             }
             mFilePathCallback = filePath;
 
+
             Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
                 // Create the File where the photo should go
-                File photoFile = null;
+           /*     File photoFile = null;
                 try {
-                    photoFile = createImageFile();
+                 //   photoFile = createImageFile();
                     takePictureIntent.putExtra("PhotoPath", mCameraPhotoPath);
                 } catch (IOException ex) {
                     // Error occurred while creating the File
                     Log.e(TAG, "Unable to create Image File", ex);
                 }
+
                 // Continue only if the File was successfully created
                 if (photoFile != null) {
                     mCameraPhotoPath = "file:" + photoFile.getAbsolutePath();
@@ -547,6 +585,8 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 } else {
                     takePictureIntent = null;
                 }
+                */
+
             }
             Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
             contentSelectionIntent.addCategory(Intent.CATEGORY_OPENABLE);
@@ -675,7 +715,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                            // String url = "file:///" + Environment.getExternalStorageDirectory().getPath() + "/offline.html";
                             String url = "file:///android_asset/badurl.html";
                             mWebView.loadUrl(url);
-
                             Handler hdler = new Handler();
 
                             hdler.postDelayed(new Runnable() {
@@ -769,67 +808,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
     }
 
-/*
-    // now we need a broadcast receiver
-     public android.content.BroadcastReceiver BroadcastReceiver = new BroadcastReceiver() {
-        @Override
-        public void onReceive(Context context, final Intent intent) {
-            String action = intent.getAction();
-            Log.d(TAG, "WEBKIOSK Action: " + action);
-            if (action.equals(ScannerMgr.APP_PACKAGE_NAME)) {
-
-                handleDecodeData(intent);
-            } else if (action.equals(ScannerMgr.NOTIFICATION_ACTION)) {
-                if (intent.hasExtra("com.symbol.datawedge.api.NOTIFICATION")) {
-                    Bundle b = intent.getBundleExtra("com.symbol.datawedge.api.NOTIFICATION");
-                    String NOTIFICATION_TYPE = b.getString("NOTIFICATION_TYPE");
-                    if (NOTIFICATION_TYPE != null) {
-                        switch (NOTIFICATION_TYPE) {
-                            case ScannerMgr.NOTIFICATION_TYPE_SCANNER_STATUS:
-
-                                Log.d(TAG, "SCANNER_STATUS: status: " + b.getString("STATUS") + ", profileName: " + b.getString("PROFILE_NAME"));
-                                String scanner_status = b.getString("STATUS");
-                                if (scanner_status.equalsIgnoreCase("WAITING")) {
-                                    // check if barcode scan was started and timed out
-                                    if (!barcodeScanned && barcodeScannedStarted && (System.currentTimeMillis() - scanTime >= BEAM_TIMEOUT)) {
-                                        //Toast.makeText(getApplicationContext(), "SCAN TIMEOUT", Toast.LENGTH_SHORT).show();
-                                     //   mWebView.evaluateJavascript("javascript:onScan('|*|');",null);
-
-                                    }
-                                    if(barcodeScannedStarted && CUSTOM_MULTIBARCODE)
-                                        mWebView.evaluateJavascript("javascript:onScan('|');",null);
-                                    barcodeScannedStarted = false;
-                                }
-                                if (scanner_status.equalsIgnoreCase("SCANNING")) {
-                                    barcodeScanned = false;
-                                    barcodeScannedStarted = true;
-                                    scanTime = System.currentTimeMillis();
-
-                                }
-                                break;
-
-                            case ScannerMgr.NOTIFICATION_TYPE_PROFILE_SWITCH:
-                                Log.d(TAG, "PROFILE_SWITCH: profileName: " + b.getString("PROFILE_NAME") + ", profileEnabled: " + b.getBoolean("PROFILE_ENABLED"));
-                                break;
-
-                            case ScannerMgr.NOTIFICATION_TYPE_CONFIGURATION_UPDATE:
-                                break;
-                        }
-                    }
-                }
-            }
-
-        }
-    };
-*/
-/*
-    private void handleDecodeData(Intent i) {
-        String data = i.getStringExtra(ScannerMgr.DATA_STRING_TAG);
-        String type = i.getStringExtra(ScannerMgr.LABEL_TYPE);
-        Log.d(TAG,"***barcode:"+data);
-        mWebView.evaluateJavascript("javascript:onScan('"+data+"');",null);
-    }
-*/
     public void showSip(){
         Log.d(TAG, "showSip()");
         mWebView.bKeyboardShowState = true;
@@ -845,7 +823,8 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         InputStream input;
         FileInputStream fis;
         try {
-            File f = new File(Environment.getExternalStorageDirectory().getAbsoluteFile() + "/inject.js");
+            Log.d(TAG,"Inject file: "+mSettingsMgr.getPath() + "/"+scriptFile);
+            File f = new File(mSettingsMgr.getPath() + "/"+scriptFile);
             fis = new FileInputStream(f); //getAssets().open(scriptFile);
             byte[] buffer = new byte[fis.available()];
             fis.read(buffer);
