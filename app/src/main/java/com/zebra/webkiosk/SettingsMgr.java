@@ -26,8 +26,6 @@ public class SettingsMgr {
     public SettingsMgr(Context context) {
         mContext = context;
         //Log.d(TAG,Environment.getExternalStorageDirectory().getAbsoluteFile().toString());
-
-
         //Legacy path
         mPath = Environment.getExternalStorageDirectory() + File.separator  + "webkiosk/";
 
@@ -78,7 +76,7 @@ public class SettingsMgr {
            boolean success =  fPath.mkdirs();
            Log.d(TAG,"Path created = "+ success);
         }
-        Log.d(TAG,"Write path: "+mPath);
+        Log.d(TAG,"Config save path: "+mPath);
         final File file = new File(mPath, mSettingsFile);
 
         // Save your stream, don't forget to flush() it before closing it.
@@ -151,6 +149,9 @@ public class SettingsMgr {
             } catch (IOException e) {
                 Log.e(TAG, "File read failed: " + e.toString());
             }
+        } else {
+            Log.e(TAG, "Config doesn't exist.");
+            writeSettingFile(); //write default settings
         }
     }
 

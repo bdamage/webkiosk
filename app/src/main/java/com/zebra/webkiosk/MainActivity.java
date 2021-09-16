@@ -74,7 +74,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 // ****************************************************
     private boolean CUSTOM_MULTIBARCODE = false;
 // ****************************************************
- public static final String TAG = "WEBKIOSK";
+ public static final String TAG = "WEBKIOSK_";
     private CustomWebView mWebView;
     JavaScriptInterface jsInterface;
 
@@ -113,7 +113,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         String type = i.getStringExtra(ScannerMgr.LABEL_TYPE);
         String source = i.getStringExtra(ScannerMgr.SOURCE_TAG);
         String decode = "";//i.getStringExtra(ScannerMgr.DECODE_DATA_TAG);
-        Log.d(TAG,"***barcode:"+data);
         String json = "{data:\""+data+"\",type:\""+type+"\", source:\""+source+"\", decode:\""+decode+"\"}";
         Log.d(TAG,"***barcode (json obj):"+json);
         mWebView.evaluateJavascript("javascript:if(typeof onDatawedgeEvent === \"function\") onDatawedgeEvent("+json+");",null);
@@ -122,7 +121,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
     @Override
     public void onBatteryEvent(Intent intent) {
-        Log.d(TAG,"MainActivity got battery event!");
+        Log.d(TAG,"Battery event!");
         Bundle bundle = intent.getExtras();
         //extras
         JSONObject json = new JSONObject();
@@ -194,6 +193,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
     @Override
     protected void onResume() {
         super.onResume();
+        Log.d(TAG,"onResume");
         mSettingsMgr.onLoadSettings();
         if(mSettingsMgr.mSettingsData.forcePortrait)
             setRequestedOrientation(ActivityInfo.SCREEN_ORIENTATION_PORTRAIT);
@@ -238,13 +238,25 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                     mSettingsMgr.setSettingFile(configfile);
                 else
                     Log.d(TAG,"Invalid setting filename provided via intent");
-            } else if( intent.getAction().equals("android.intent.action.MAIN")) {
 
-                 rebooted = intent.getBooleanExtra("BOOT_COMPLETED", false);
+
+            }  else if( intent.getAction().equals("com.zebra.webkiosk.SET_URL")) {
+                String url = intent.getStringExtra("url");
+
+                Log.d(TAG, "Detected to new URL save that to config file: "+url);
+                if(url!=null) {
+                    mSettingsMgr.mSettingsData.homeURL = url;
+                    mSettingsMgr.onSaveSettings();
+                } else {
+                    Log.d(TAG, "Invalid setting url provided via intent");
+                }
 
             }
+            else if( intent.getAction().equals("android.intent.action.MAIN")) {
+                 rebooted = intent.getBooleanExtra("BOOT_COMPLETED", false);
+            }
         }
-
+        Log.d(TAG,"onCreate");
         mSettingsMgr.onLoadSettings();
 
         if(rebooted == true && mSettingsMgr.mSettingsData.autoStartOnBoot == false) {
@@ -339,24 +351,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         mWebView.addJavascriptInterface(jsInterface, "JSInterface");
 
         mWebView.setWebChromeClient(new MyChromeClient());
-
-      /*  UserName: abc
-        Password: def
-        OnScreenKeyboard: false
-        */
-/*
-        String html = "<!DOCTYPE html>" +
-    "<html>" +
-    "<body onload='document.frm1.submit()'>" +
-    "<form action='"+mSettingsMgr.mSettingsData.homeURL+"' method='post' name='frm1'>" +
-    "  <input type='hidden' name='UserName' value='004002'><br>" +
-    "  <input type='hidden' name='Password' value='0040Sta19547'><br>" +
-    "</form>" +
-    "</body>" +
-    "</html>";
-mWebView.loadData(html, "text/html", "UTF-8");
-
-*/
         mWebView.loadUrl(mSettingsMgr.mSettingsData.homeURL);
 
     }
@@ -745,7 +739,7 @@ mWebView.loadData(html, "text/html", "UTF-8");
         @Override
         public void onPageFinished(WebView view, String url) {
             super.onPageFinished(view, url);
-            Log.d(TAG,"Inject JS file");
+            Log.d(TAG,"Inject JS file?");
             if(mSettingsMgr.mSettingsData.injectJavascript)
                 injectScriptFile(mWebView,"inject.js");
 
