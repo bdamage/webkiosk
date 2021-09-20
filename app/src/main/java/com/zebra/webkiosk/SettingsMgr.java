@@ -36,7 +36,7 @@ public class SettingsMgr {
 
     public void onSaveSettings() {
         Log.v(TAG, "Save settings.");
-   /*
+/*
         SharedPreferences sharedPref = mContext.getSharedPreferences(SCOPE, Context.MODE_PRIVATE);
 
         SharedPreferences.Editor editor = sharedPref.edit();
@@ -53,7 +53,7 @@ public class SettingsMgr {
         editor.putBoolean("useScannerAPI", mSettingsData.useScannerAPI);
         //  Log.v(TAG, "New interval: "+getEditTextInt(com.zebra.webkiosk.R.id.editTextInterval));
         editor.commit();
-    */
+  */
         writeSettingFile();
 
     }
