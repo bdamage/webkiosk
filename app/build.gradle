@@ -4,9 +4,9 @@ android {
     signingConfigs {
         config {
             keyAlias 'key0'
-            keyPassword 'webkiosk'
+            keyPassword ''
             storeFile file('C:/Users/hendrix/upload-webkiosk.jks')
-            storePassword 'webkiosk'
+            storePassword ''
         }
     }
     compileSdkVersion 28
@@ -15,7 +15,7 @@ android {
         minSdkVersion 22
         targetSdkVersion 28
         versionCode 1
-        versionName "1.4.4"
+        versionName "1.5.0"
         testInstrumentationRunner "android.support.test.runner.AndroidJUnitRunner"
         signingConfig signingConfigs.config
     }
