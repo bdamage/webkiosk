@@ -2,9 +2,11 @@
 
 
 
-    Change  history
+    Version  Change history
 
-    1.4.2   - Changed config file storage & inject.js to Storage/Android/data/com.zebra.webkiosk/files
+    1.4.4   - Support to set URL via Android Intents.
+    1.4.3   - Camera fixes
+    1.4.2   - Changed config file location & inject.js to Storage/Android/data/com.zebra.webkiosk/files
 
 */
 
@@ -25,10 +27,10 @@ import android.os.Build;
 import android.os.Bundle;
 import android.os.Environment;
 import android.os.Handler;
-import android.os.Parcelable;
 import android.provider.MediaStore;
 import android.support.annotation.NonNull;
 import android.support.design.widget.BottomNavigationView;
+import android.support.design.widget.Snackbar;
 import android.support.v4.app.ActivityCompat;
 import android.support.v4.content.ContextCompat;
 import android.support.v7.app.AppCompatActivity;
@@ -41,7 +43,6 @@ import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
 import android.view.inputmethod.InputMethodManager;
-import android.webkit.ConsoleMessage;
 import android.webkit.CookieManager;
 import android.webkit.RenderProcessGoneDetail;
 import android.webkit.SslErrorHandler;
@@ -66,10 +67,10 @@ import java.text.SimpleDateFormat;
 import java.util.Date;
 import java.util.Set;
 
-import static android.app.Activity.RESULT_OK;
+import static android.support.design.widget.Snackbar.LENGTH_LONG;
 
 
-public class MainActivity extends AppCompatActivity implements ScannerMgr.DatawedgeListener, NetworkConnectivityReceiver.NetworkChangeListener, NetworkConnectivityReceiver.NetworkEventListener, BatteryReceiver.BatteryListener {
+public class MainActivity extends AppCompatActivity implements RemoteIntentConfig.RemoteConfigListener, ScannerMgr.DatawedgeListener, NetworkConnectivityReceiver.NetworkChangeListener, NetworkConnectivityReceiver.NetworkEventListener, BatteryReceiver.BatteryListener {
 
 // ****************************************************
     private boolean CUSTOM_MULTIBARCODE = false;
@@ -79,6 +80,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
     JavaScriptInterface jsInterface;
 
     public ScannerMgr mScanner = null;
+    public RemoteIntentConfig mRemoteConfig = null;
     private SettingsMgr mSettingsMgr;
     private NetworkConnectivityReceiver mNetReceiver;
     private BatteryReceiver mBatteryReceiver;
@@ -105,6 +107,17 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
         json = json.replace("\"\"","\"");
         Log.d(TAG,"onNetworkEvent: "+json);
         mWebView.evaluateJavascript("javascript:if(typeof onNetworkEvent === \"function\") onNetworkEvent("+json+");",null);
+    }
+
+    @Override
+    public void onRemoteConfigEvent(Intent intent) {
+
+        String url = intent.getStringExtra("url");
+        if(url.isEmpty()==false) {
+            mSettingsMgr.mSettingsData.homeURL = url;
+            mSettingsMgr.writeSettingFile();
+        }
+        initWebView();
     }
 
     @Override
@@ -166,8 +179,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                             menu.findItem(R.id.navigation_dashboard).setIcon(R.drawable.nokeyboard);
                         else
                             menu.findItem(R.id.navigation_dashboard).setIcon(R.drawable.ic_keyboard_black_24dp);
-
-
                     }   else {
                         showSip();
                     }
@@ -185,6 +196,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
     protected void onDestroy() {
         super.onDestroy();
 
+        mRemoteConfig.unregisterReceiver();
         mNetReceiver.unregisterReceiver();
         mScanner.unregisterReceiver();
         mBatteryReceiver.unregisterReceiver();
@@ -220,7 +232,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
         setBottomNavBarVisibility();
         checkWiFi();
-
     }
 
     @Override
@@ -238,7 +249,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                     mSettingsMgr.setSettingFile(configfile);
                 else
                     Log.d(TAG,"Invalid setting filename provided via intent");
-
 
             }  else if( intent.getAction().equals("com.zebra.webkiosk.SET_URL")) {
                 String url = intent.getStringExtra("url");
@@ -306,6 +316,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
         }
 
+        mRemoteConfig = new RemoteIntentConfig(this);
         mNetReceiver = new NetworkConnectivityReceiver(this);
         mBatteryReceiver = new BatteryReceiver(this);
 
@@ -336,7 +347,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
 
         mWebView.clearSslPreferences();
        // mWebView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_COMPATIBILITY_MODE);
-
 
        // if(mSettingsMgr.mSettingsData.allowMixedContent)
          //   mWebView.getSettings().setMixedContentMode(WebSettings.MIXED_CONTENT_NEVER_ALLOW);
@@ -472,18 +482,18 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
     @Override
     public void onActivityResult(int requestCode, int resultCode, Intent data) {
 
-     /*   Log.d(TAG,"requestCode: "+requestCode);
+       Log.d(TAG,"requestCode: "+requestCode);
 
         Log.d(TAG,"resultCode: "+resultCode);
-        for(String s : data.getExtras().keySet())
-            Log.d(TAG,"Key: "+s+" value:"+data.getExtras().getString(s));
-*/
+
+
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.LOLLIPOP) {
             if (requestCode != INPUT_FILE_REQUEST_CODE || mFilePathCallback == null) {
                 super.onActivityResult(requestCode, resultCode, data);
                 return;
             }
             Uri[] results = null;
+            Log.d(TAG,"mCameraPhotoPath: "+mCameraPhotoPath);
             // Check that the response is a good one
             if (resultCode == RESULT_OK) {
                 if (data == null) {
@@ -494,6 +504,9 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                         results = new Uri[]{Uri.parse(mCameraPhotoPath)};
                     }
                 } else {
+//                    for(String s : data.getExtras().keySet())
+ //                       Log.d(TAG,"Key: "+s+" value:"+data.getExtras().getString(s));
+
                     String dataString = data.getDataString();
                     Log.d(TAG,"dataString: "+dataString);
                     if (dataString != null) {
@@ -529,7 +542,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 mUploadMessage = null;
             }
         }
-        return;
     }
 
     private File createImageFile() throws IOException {
@@ -540,7 +552,7 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 Environment.DIRECTORY_PICTURES);
         File imageFile = File.createTempFile(
                 imageFileName,  /* prefix */
-                ".jpg",         /* suffix */
+                ".jpg",   /* suffix */
                 storageDir      /* directory */
         );
         return imageFile;
@@ -562,9 +574,9 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
             Intent takePictureIntent = new Intent(MediaStore.ACTION_IMAGE_CAPTURE);
             if (takePictureIntent.resolveActivity(getPackageManager()) != null) {
                 // Create the File where the photo should go
-           /*     File photoFile = null;
+                File photoFile = null;
                 try {
-                 //   photoFile = createImageFile();
+                    photoFile = createImageFile();
                     takePictureIntent.putExtra("PhotoPath", mCameraPhotoPath);
                 } catch (IOException ex) {
                     // Error occurred while creating the File
@@ -579,7 +591,6 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
                 } else {
                     takePictureIntent = null;
                 }
-                */
 
             }
             Intent contentSelectionIntent = new Intent(Intent.ACTION_GET_CONTENT);
@@ -598,19 +609,17 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
             chooserIntent.putExtra(Intent.EXTRA_INITIAL_INTENTS, intentArray);
             startActivityForResult(chooserIntent, INPUT_FILE_REQUEST_CODE);
 
-
             return true;
         }
 
         // openFileChooser for Android 3.0+
-        public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType){
+     /*   public void openFileChooser(ValueCallback<Uri> uploadMsg, String acceptType){
 
             Log.d(TAG,"Open File chooser");
             // Update message
             mUploadMessage = uploadMsg;
 
             try{
-
                 // Create AndroidExampleFolder at sdcard
 
                 File imageStorageDir = new File(
@@ -658,17 +667,17 @@ public class MainActivity extends AppCompatActivity implements ScannerMgr.Datawe
             }
 
         }
-
+*/
 
         // The webPage has 2 filechoosers and will send a
         // console message informing what action to perform,
         // taking a photo or updating the file
 
-        public boolean onConsoleMessage(ConsoleMessage cm) {
+        /* public boolean onConsoleMessage(ConsoleMessage cm) {
 
             onConsoleMessage(cm.message(), cm.lineNumber(), cm.sourceId());
             return true;
-        }
+        }*/
 
     }
 

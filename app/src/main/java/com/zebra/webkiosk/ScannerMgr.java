@@ -86,9 +86,7 @@ public class ScannerMgr extends BroadcastReceiver {
         filter.addCategory("android.intent.category.DEFAULT");
         mContext.registerReceiver(this, filter);
     }
-    public void unregisterReceiver_() {
-        mContext.unregisterReceiver(this);
-    }
+
 
     @Override
     public void onReceive(Context context, Intent intent) {

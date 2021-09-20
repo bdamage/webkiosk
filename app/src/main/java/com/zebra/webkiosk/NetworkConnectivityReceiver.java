@@ -42,8 +42,6 @@ public class NetworkConnectivityReceiver extends BroadcastReceiver {
 
     public void registerReceiver(Activity activity) {
 
-
-
         if (ContextCompat.checkSelfPermission(activity,
                 Manifest.permission.CHANGE_NETWORK_STATE)
                 != PackageManager.PERMISSION_GRANTED) {
@@ -68,7 +66,6 @@ public class NetworkConnectivityReceiver extends BroadcastReceiver {
         } else {
             // Permission has already been granted
         }
-
 
         if (ContextCompat.checkSelfPermission(activity,
                 Manifest.permission.ACCESS_NETWORK_STATE)
@@ -98,8 +95,6 @@ public class NetworkConnectivityReceiver extends BroadcastReceiver {
         IntentFilter filter = new IntentFilter();
         filter.addAction("android.net.conn.CONNECTIVITY_CHANGE");
         mContext.registerReceiver(this, filter);
-
-
     }
 
     public void unregisterReceiver() {
@@ -109,15 +104,11 @@ public class NetworkConnectivityReceiver extends BroadcastReceiver {
     @Override
     public void onReceive(Context context, Intent intent) {
 
-
         mNetworkEvent.onNetworkEvent(fetchWiFiState());
-
         mNetworkChange.onNetworkChange(isConnected());
     }
 
-    public String fetchWiFiState()
-    {
-
+    public String fetchWiFiState() {
         WifiManager wifiManager = (WifiManager) mContext.getSystemService(Context.WIFI_SERVICE);
         int numberOfLevels = 5;
         WifiInfo wifiInfo = wifiManager.getConnectionInfo();
